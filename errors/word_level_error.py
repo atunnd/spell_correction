@@ -174,7 +174,7 @@ def abbr_name_error(sentence):
     for i in range(len(words)):
         abbr = words[i].strip()  
         if abbr.upper() in short_dict: 
-            words[i] = short_dict[abbr] 
+            words[i] = short_dict[abbr.upper()] 
         
         if words[i].istitle() or words[i].upper():  
             words[i] = words[i].lower() 
