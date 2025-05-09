@@ -11,13 +11,17 @@ from errors.character_level_error import create_character_level
 from errors.spell_level_error import apply_pronunciation_error
 from errors.preprocess import sentence_clean, is_english, is_vietnamese, is_only_numbers_and_special_chars, check_vietnamese
 
+from concurrent.futures import ThreadPoolExecutor
+
+
 import os
 from underthesea import sent_tokenize
 import pandas as pd
 import csv
 from datasets import load_dataset
 import argparse
-
+from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 character_level_errors = {
     'letter_insertion': letter_insertion,
@@ -86,25 +90,60 @@ def load_training_data(num_samples):
 
     return df_sampled
 
+# def create_training_data(args):
+#     num_samples = args.num_of_samples
+
+#     df = load_training_data(num_samples)
+#     train_df = pd.DataFrame(columns=["id", "error_sentence", "GT_sentence"])
+
+#     for idx in tqdm(range(len(df))):
+#         sample = df.iloc[idx, 0]
+#         sample = sentence_clean(sample)
+#         sentences = sent_tokenize(sample)
+#         for sentence in sentences:
+#             if not is_english(sentence) and not is_only_numbers_and_special_chars(sentence) and is_vietnamese(sentence):
+#                 error_sentences = create_error(sentence)
+#                 if error_sentences:
+#                     for error in error_sentences:
+#                         train_df.loc[len(train_df)] = [len(train_df), error, sentence]
+
+#     os.makedirs("output", exist_ok=True)
+#     train_df.to_csv("output/training.csv", quoting=csv.QUOTE_ALL, encoding='utf-8-sig', index=False)
+
+def process_sentence_pair(args):
+    sentence, idx = args
+    result = []
+    if not is_english(sentence) and not is_only_numbers_and_special_chars(sentence) and is_vietnamese(sentence):
+        error_sentences = create_error(sentence)
+        if error_sentences:
+            for error in error_sentences:
+                result.append([idx, error, sentence])
+    return result
+
 def create_training_data(args):
     num_samples = args.num_of_samples
-
     df = load_training_data(num_samples)
-    train_df = pd.DataFrame(columns=["id", "error_sentence", "GT_sentence"])
+    sentences_with_id = []
 
-    for idx in range(len(df)):
+    for idx in tqdm(range(len(df))):
         sample = df.iloc[idx, 0]
         sample = sentence_clean(sample)
         sentences = sent_tokenize(sample)
         for sentence in sentences:
-            if not is_english(sentence) and not is_only_numbers_and_special_chars(sentence) and is_vietnamese(sentence):
-                error_sentences = create_error(sentence)
-                if error_sentences:
-                    for error in error_sentences:
-                        train_df.loc[len(train_df)] = [len(train_df), error, sentence]
+            sentences_with_id.append((sentence, len(sentences_with_id)))
 
+    results = []
+    with ProcessPoolExecutor() as executor:
+        futures = [executor.submit(process_sentence_pair, arg) for arg in sentences_with_id]
+        for future in as_completed(futures):
+            res = future.result()
+            if res:
+                results.extend(res)
+
+    train_df = pd.DataFrame(results, columns=["id", "error_sentence", "GT_sentence"])
     os.makedirs("output", exist_ok=True)
     train_df.to_csv("output/training.csv", quoting=csv.QUOTE_ALL, encoding='utf-8-sig', index=False)
+
 
 
 if __name__ == "__main__":
