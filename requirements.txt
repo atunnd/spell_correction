@@ -1,0 +1,6 @@
+pandas
+datasets
+underthesea
+langdetect
+unidecode
+bogo
