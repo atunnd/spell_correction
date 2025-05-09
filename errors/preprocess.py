@@ -42,3 +42,9 @@ def is_vietnamese(text):
     except:
         return False
     
+def check_vietnamese(sentence):
+    words = sentence.split()
+    for word in words:
+        if not is_vietnamese(word):
+            return False
+    return True

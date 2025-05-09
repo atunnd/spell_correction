@@ -9,7 +9,7 @@ from errors.word_level_error import split_word, merge_word, duplication_word, ti
 from errors.character_level_error import letter_insertion, letter_omission, letter_substitution, near_key, letter_transposition, diacritic_omission, diacritic_substitution
 from errors.character_level_error import create_character_level
 from errors.spell_level_error import apply_pronunciation_error
-from errors.preprocess import sentence_clean, is_english, is_vietnamese, is_only_numbers_and_special_chars
+from errors.preprocess import sentence_clean, is_english, is_vietnamese, is_only_numbers_and_special_chars, check_vietnamese
 
 import os
 from underthesea import sent_tokenize
@@ -51,6 +51,8 @@ def create_error(sentence):
     number_of_words_get_error = int(len(words) * 0.15)
     error_idx = random.sample(range(0, len(words)), number_of_words_get_error)
     for idx in error_idx:
+        if not is_vietnamese(words[idx]):
+            continue
         if random.uniform(0, 1) <= 0.8:
             error_level = random.choice([0, 1, 2])
             if error_level == 0: 
@@ -102,7 +104,8 @@ def create_training_data(args):
                         train_df.loc[len(train_df)] = [len(train_df), error, sentence]
 
     os.makedirs("output", exist_ok=True)
-    train_df.to_csv("output/training.csv",quoting=csv.QUOTE_ALL)
+    train_df.to_csv("output/training.csv", quoting=csv.QUOTE_ALL, encoding='utf-8-sig', index=False)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
